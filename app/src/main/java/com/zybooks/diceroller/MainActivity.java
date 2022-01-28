@@ -3,7 +3,9 @@ package com.zybooks.diceroller;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.view.ContextMenu;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
@@ -13,7 +15,8 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity
+       implements RollLengthDialogFragment.OnRollLengthSelectedListener {
 
     public static final int MAX_DICE = 3;
 
@@ -22,12 +25,51 @@ public class MainActivity extends AppCompatActivity {
     private int mVisibleDice;
     private Dice[] mDice;
     private ImageView[] mDiceImageViews;
+    private long mTimerLength = 2000;
+    private int mCurrentDie;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        registerForContextMenu(mDiceImageViews[0]);
 
+        // Register context menus for all dice and tag each die
+        for (int i = 0; i < mDiceImageViews.length; i++) {
+            registerForContextMenu(mDiceImageViews[i]);
+            mDiceImageViews[i].setTag(i);
+        }
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v,
+                                    ContextMenu.ContextMenuInfo menuInfo) {
+
+        super.onCreateContextMenu(menu, v, menuInfo);
+        mCurrentDie = (int) v.getTag();   // Which die is selected?
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.context_menu, menu);
+    }
+
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.add_one) {
+            mDice[mCurrentDie].addOne();
+            showDice();
+            return true;
+        } else if (item.getItemId() == R.id.subtract_one) {
+            mDice[mCurrentDie].subtractOne();
+            showDice();
+            return true;
+        } else if (item.getItemId() == R.id.roll) {
+            rollDice();
+            return true;
+        }
+
+        return super.onContextItemSelected(item);
+    }
         // Create an array of Dice
         mDice = new Dice[MAX_DICE];
         for (int i = 0; i < MAX_DICE; i++) {
@@ -46,6 +88,8 @@ public class MainActivity extends AppCompatActivity {
         showDice();
     }
 
+
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.appbar_menu, menu);
@@ -61,6 +105,13 @@ public class MainActivity extends AppCompatActivity {
             mDiceImageViews[i].setContentDescription(Integer.toString(mDice[i].getNumber()));
         }
     }
+
+    @Override
+    public void onRollLengthClick(int which) {
+        // Convert to milliseconds
+        mTimerLength = 1000 * (which + 1);
+    }
+
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 
@@ -89,18 +140,24 @@ public class MainActivity extends AppCompatActivity {
             rollDice();
             return true;
         }
+
+        else if (item.getItemId() == R.id.action_roll_length) {
+            RollLengthDialogFragment dialog = new RollLengthDialogFragment();
+            dialog.show(getSupportFragmentManager(), "rollLengthDialog");
+            return true;
+        }
         return super.onOptionsItemSelected(item);
     }
+
     private void rollDice() {
         Toast.makeText(getApplicationContext(),"Rolling Dice!",Toast.LENGTH_SHORT).show();
-
         mMenu.findItem(R.id.action_stop).setVisible(true);
 
         if (mTimer != null) {
             mTimer.cancel();
         }
 
-        mTimer = new CountDownTimer(2000, 100) {
+            mTimer = new CountDownTimer(mTimerLength, 100) {
             public void onTick(long millisUntilFinished) {
                 for (int i = 0; i < mVisibleDice; i++) {
                     mDice[i].roll();
